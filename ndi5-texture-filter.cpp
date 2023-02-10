@@ -1,4 +1,4 @@
-#include "shared-texture-filter.h"
+#include "ndi5-texture-filter.h"
 
 #ifdef DEBUG
 #include <string>
@@ -35,20 +35,6 @@ static void filter_defaults(obs_data_t *settings)
 
 namespace Texture {
 
-#ifdef DEBUG
-static void debug_report_shared_handle2(void *data)
-{
-	auto filter = (struct filter *)data;
-
-	auto handle = gs_texture_get_shared_handle(filter->shared_texture);
-
-	auto ws = "\r\n\r\n\r\n<<<===>>> POSSIBLE TEXTURE HANDLE : " +
-		  std::to_string(handle) + "\r\n\r\n\r\n";
-
-	blog(LOG_INFO, ws.c_str());
-}
-#endif
-
 static void reset(void *data, uint32_t width, uint32_t height)
 {
 	auto filter = (struct filter *)data;
@@ -63,9 +49,7 @@ static void reset(void *data, uint32_t width, uint32_t height)
 	filter->shared_texture =
 		gs_texture_create(width, height, filter->shared_format, 1, NULL,
 				  GS_RENDER_TARGET | GS_SHARED_TEX);
-#ifdef DEBUG
-	debug_report_shared_handle2(filter);
-#endif
+
 }
 
 static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
