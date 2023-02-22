@@ -20,15 +20,21 @@ set(PLUGIN_AUTHOR "mahgu")
 set(LINUX_MAINTAINER_EMAIL "me@contoso.com")
 
 target_sources(${PROJECT_NAME} PRIVATE
-  inc/SpoutCommon.h
-  inc/SpoutSenderNames.h
-  inc/SpoutSharedMemory.h
-  inc/SpoutUtils.h
-  inc/SpoutSenderNames.cpp
-  inc/SpoutSharedMemory.cpp
-  inc/SpoutUtils.cpp
-  spout2-texture-filter.h
-  spout2-texture-filter.cpp
+  inc/Processing.NDI.compat.h
+  inc/Processing.NDI.deprecated.h
+  inc/Processing.NDI.DynamicLoad.h
+  inc/Processing.NDI.Find.h
+  inc/Processing.NDI.FrameSync.h
+  inc/Processing.NDI.Lib.cplusplus.h
+  inc/Processing.NDI.Recv.ex.h
+  inc/Processing.NDI.Recv.h
+  inc/Processing.NDI.Routing.h
+  inc/Processing.NDI.Send.h
+  inc/Processing.NDI.structs.h
+  inc/Processing.NDI.utilities.h
+  inc/Processing.NDI.Lib.h
+  ndi5-texture-filter.h
+  ndi5-texture-filter.cpp  
 )
 
 if(BUILD_OUT_OF_TREE)

@@ -3,17 +3,23 @@
 #include <obs-module.h>
 #include <graphics/graphics.h>
 
-#define OBS_PLUGIN "ndi5-texture-filter"
-#define OBS_PLUGIN_ "ndi5_texture_filter"
-#define OBS_PLUGIN_VERSION_MAJOR 0
-#define OBS_PLUGIN_VERSION_MINOR 0
-#define OBS_PLUGIN_VERSION_RELEASE 1
-#define OBS_PLUGIN_VERSION_STRING "0.0.1"
-#define OBS_PLUGIN_LANG "en-US"
-#define OBS_PLUGIN_COLOR_SPACE GS_RGBA16
+#include "inc/Processing.NDI.Lib.h"
 
-#define OBS_UI_SETTING_FILTER_NAME "mahgu.ndi5texture.ui.filter_title"
-#define OBS_UI_SETTING_DESC_NAME "mahgu.ndi5texture.ui.name_desc"
+/* clang-format off */
+
+#define OBS_PLUGIN                         "ndi5-texture-filter"
+#define OBS_PLUGIN_                        "ndi5_texture_filter"
+#define OBS_PLUGIN_VERSION_MAJOR           0
+#define OBS_PLUGIN_VERSION_MINOR           0
+#define OBS_PLUGIN_VERSION_RELEASE         1
+#define OBS_PLUGIN_VERSION_STRING          "0.0.1"
+#define OBS_PLUGIN_LANG                    "en-US"
+#define OBS_PLUGIN_COLOR_SPACE             GS_RGBA_UNORM
+
+#define OBS_UI_SETTING_FILTER_NAME         "mahgu.ndi5texture.ui.filter_title"
+#define OBS_UI_SETTING_DESC_NAME           "mahgu.ndi5texture.ui.name_desc"
+
+/* clang-format on */
 
 #define obs_log(level, format, ...) \
 	blog(level, "[ndi5-texture-filter] " format, ##__VA_ARGS__)
@@ -26,7 +32,7 @@
 bool obs_module_load(void);
 void obs_module_unload();
 
-namespace NDI5Texture {
+namespace NDI5Filter {
 // DEBUG stuff
 
 void report_version();
@@ -84,4 +90,4 @@ struct obs_source_info create_filter_info()
 	return filter_info;
 };
 
-} // namespace NDI5Texture
+} // namespace NDI5Filter

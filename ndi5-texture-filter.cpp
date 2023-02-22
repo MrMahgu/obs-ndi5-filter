@@ -1,13 +1,9 @@
 #include "ndi5-texture-filter.h"
 
-#ifdef DEBUG
-#include <string>
-#endif;
-
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(OBS_PLUGIN, OBS_PLUGIN_LANG)
 
-namespace NDI5Texture {
+namespace NDI5Filter {
 
 static const char *filter_get_name(void *unused)
 {
@@ -139,7 +135,7 @@ static void filter_update(void *data, obs_data_t *settings)
 
 static void *filter_create(obs_data_t *settings, obs_source_t *source)
 {
-	auto filter = (struct filter *)bzalloc(sizeof(NDI5Texture::filter));
+	auto filter = (struct filter *)bzalloc(sizeof(NDI5Filter::filter));
 
 	// Baseline everything
 	filter->prev_target = nullptr;
@@ -196,20 +192,20 @@ void report_version()
 	info("you can haz ndi5-texture tooz (Version: %s)",
 	     OBS_PLUGIN_VERSION_STRING);
 #else
-	info("obs-ndi5texture-filter [mrmahgu] - version %s",
+	info("obs-ndi5-texture [mrmahgu] - version %s",
 	     OBS_PLUGIN_VERSION_STRING);
 #endif
 }
 
-} // namespace NDI5Texture
+} // namespace NDI5Filter
 
 bool obs_module_load(void)
 {
-	auto filter_info = NDI5Texture::create_filter_info();
+	auto filter_info = NDI5Filter::create_filter_info();
 
 	obs_register_source(&filter_info);
 
-	NDI5Texture::report_version();
+	NDI5Filter::report_version();
 
 	return true;
 }
