@@ -83,8 +83,8 @@ inline static void update(void *data, uint32_t width, uint32_t height,
 {
 	auto filter = (struct filter *)data;
 
-	if (filter->first_run_update) {
-		filter->first_run_update = false;
+	if (!filter->first_run_update) {
+		filter->first_run_update = true;
 		filter->ndi_video_frame.frame_rate_D = 1000;
 		filter->ndi_video_frame.frame_rate_N = 60000;		
 		filter->ndi_video_frame.picture_aspect_ratio = 1.778;
