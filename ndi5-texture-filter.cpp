@@ -179,14 +179,15 @@ static void reset(void *data, uint32_t width, uint32_t height)
 	filter->sender_created = true;
 }
 
-std::mutex _lock;
-
 static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 {
 	auto filter = (struct filter *)data;
 
+	if (!filter->can_render)
+		return;
+
 	if (filter->width != cx || filter->height != cy)
-		Texture::reset(filter, cx, cy);
+		Texture::reset(filter, cx, cy);	
 
 	gs_viewport_push();
 	gs_projection_push();
@@ -326,6 +327,7 @@ static void *filter_create(obs_data_t *settings, obs_source_t *source)
 	filter->height = 0;
 	filter->frame_allocated = false;
 	filter->sender_created = false;
+	filter->can_render = true;
 
 	// TODO undevtest this variable
 	filter->depth = 4;
@@ -348,6 +350,9 @@ static void filter_destroy(void *data)
 
 	if (!filter)
 		return;
+
+	// we be no rendering mon
+	filter->can_render = false;
 
 	obs_remove_main_render_callback(filter_render_callback, filter);
 
@@ -399,15 +404,6 @@ static void filter_video_render(void *data, gs_effect_t *effect)
 		return;
 
 	obs_source_skip_video_filter(filter->context);
-}
-
-static void filter_video_tick(void *data, float seconds)
-{
-	UNUSED_PARAMETER(seconds);
-
-	auto filter = (struct filter *)data;
-
-	filter->ndi_video_frame.timestamp += seconds;
 }
 
 // Writes a simple log entry to OBS
@@ -492,8 +488,7 @@ bool obs_module_load(void)
 void obs_module_unload()
 {
 	// v1
-	if (ndi5_lib)
-		ndi5_lib->destroy();
+	//if (ndi5_lib) ndi5_lib->destroy();
 
 	if (ndi5_qlibrary) {
 		ndi5_qlibrary->unload();
