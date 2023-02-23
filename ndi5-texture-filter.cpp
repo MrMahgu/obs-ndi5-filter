@@ -83,20 +83,12 @@ inline static void update(void *data, uint32_t width, uint32_t height,
 {
 	auto filter = (struct filter *)data;
 
-	filter->ndi_video_frame.frame_rate_D = 1001;
+	filter->ndi_video_frame.frame_rate_D = 1000;
 	filter->ndi_video_frame.frame_rate_N = 60000;
-	//filter->ndi_video_frame.timestamp
-	//filter->ndi_video_frame.timecode = NDIlib_send_timecode_synthesize;
 
 	filter->ndi_video_frame.picture_aspect_ratio = 1.778;
 
 	filter->ndi_video_frame.frame_format_type = NDIlib_frame_format_type_e::NDIlib_frame_format_type_progressive;
-
-	//std::string xx = std::to_string(width);
-	//std::string yy = std::to_string(height);
-
-	//blog(LOG_INFO, xx.c_str());
-	//blog(LOG_INFO, yy.c_str());
 
 	filter->ndi_video_frame.xres = width;
 	filter->ndi_video_frame.yres = height;
@@ -170,22 +162,20 @@ static void reset(void *data, uint32_t width, uint32_t height)
 	filter->height = height;
 	filter->size = width * height * filter->depth;
 
-	// Peace out if our sender exists
-	if (filter->sender_created)
-		return;
+	if (filter->sender_created)	
+		ndi5_lib->send_destroy(filter->ndi_sender);
 
 	NDIlib_send_create_t desc;
 	desc.p_ndi_name = "Test NDI";
 	desc.clock_video = false;
-
-	//v1
+	
 	filter->ndi_sender = ndi5_lib->send_create(&desc);
 
-	// error out here if invalid??
-	// can_render flag? ...
 	if (!filter->ndi_sender) {
 		error("could not create ndi sender");
 	}
+
+	filter->sender_created = true;
 }
 
 static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
@@ -205,7 +195,7 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 
 	// Render to current buffer
 	gs_set_render_target_with_color_space(
-		filter->buffer_texture[0], NULL, GS_CS_SRGB);
+		filter->buffer_texture[!filter->buffer_swap], NULL, GS_CS_SRGB);
 
 	gs_set_viewport(0, 0, filter->width, filter->height);
 
@@ -232,7 +222,7 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 
 	// Render OTHER buffer to current staging surface
 	gs_stage_texture(filter->staging_surface[filter->buffer_swap],
-			 filter->buffer_texture[0]);
+			 filter->buffer_texture[!filter->buffer_swap]);
 
 	uint32_t linesize;
 	uint8_t *texture_data;
@@ -265,6 +255,9 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 
 		ndi5_lib->send_send_video_async_v2(filter->ndi_sender,
 						   &filter->ndi_video_frame);
+
+		ndi5_lib->send_send_video_async_v2(filter->ndi_sender, NULL); // ??
+
 	} else {
 		// ??
 		info("not mapped");
@@ -367,6 +360,7 @@ static void filter_destroy(void *data)
 	// v1
 
 	if (filter->sender_created) {
+		info("destroying ndi sender?");
 		ndi5_lib->send_destroy(filter->ndi_sender);
 	}
 
@@ -410,11 +404,6 @@ static void filter_video_tick(void *data, float seconds)
 	UNUSED_PARAMETER(seconds);
 
 	auto filter = (struct filter *)data;
-
-
-	//filter->can_render = true;
-	//std::string xx = std::to_string(seconds);
-	//blog(LOG_INFO, xx.c_str());
 }
 
 
@@ -435,39 +424,6 @@ void report_version()
 typedef const NDIlib_v5 *(*NDIlib_v5_load_)(void);
 
 std::unique_ptr<QLibrary> ndi5_qlibrary;
-
-/*
-static void ndi_video_thread(HMODULE dll, std::mutex mtx,
-			     std::condition_variable &cv, bool &stop_thread)
-{
-	// create ndi stuff here
-	const NDIlib_v5 *(*NDIlib_v5_load)(void) = NULL;
-
-	*((FARPROC *)&NDIlib_v5_load) = GetProcAddress(dll, "NDIlib_v5_load");
-
-	if (!NDIlib_v5_load) {
-		if (dll)
-			FreeLibrary(dll);
-		return;
-	}
-
-	const NDIlib_v5 *ndi5_lib = NDIlib_v5_load();
-
-	if (!ndi5_lib) {
-		if (dll)
-			FreeLibrary(dll);
-		return;
-	}
-
-	auto res = ndi5_lib->NDIlib_initialize();
-	if (!res) {
-		info("can not init ndi");
-	}
-	info("ndi rdy");
-
-	//std::unique_lock<std::mutex> lock(mtx);
-}
-*/
 
 const NDIlib_v5 *load_ndi5_lib()
 {
@@ -503,26 +459,6 @@ const NDIlib_v5 *load_ndi5_lib()
 	return nullptr;
 }
 
-/*
-const bool load_ndi5_lib_v2()
-{
-
-	QFileInfo library_path(QDir(QString(qgetenv(NDILIB_REDIST_FOLDER)))
-				       .absoluteFilePath(NDILIB_LIBRARY_NAME));
-
-	QString library_file_path = library_path.absoluteFilePath();
-
-	dll = LoadLibrary(library_file_path.toStdWString().c_str());
-
-	if (!dll) {
-		error("could not load library v2");
-		return false;
-	}
-
-	return true;
-}
-
-*/
 bool obs_module_load(void)
 {
 	auto filter_info = NDI5Filter::create_filter_info();
@@ -545,16 +481,7 @@ bool obs_module_load(void)
 		return false;
 	}
 
-	// v2
-	/*
-	if (!load_ndi5_lib_v2()) {
-		// bad
-		return false;
-	}
-
-	*/
-
-	//info("NDI5 (%s) ready", ndi5_lib->version());
+	info("NDI5 (%s) IS READY TO ROCK", ndi5_lib->version());
 
 	return true;
 }
