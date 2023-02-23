@@ -83,19 +83,22 @@ inline static void update(void *data, uint32_t width, uint32_t height,
 {
 	auto filter = (struct filter *)data;
 
-	filter->ndi_video_frame.frame_rate_D = 1000;
-	filter->ndi_video_frame.frame_rate_N = 60000;
+	if (filter->first_run_update) {
+		filter->first_run_update = false;
+		filter->ndi_video_frame.frame_rate_D = 1000;
+		filter->ndi_video_frame.frame_rate_N = 60000;		
+		filter->ndi_video_frame.picture_aspect_ratio = 1.778;
+		filter->ndi_video_frame.frame_format_type =
+			NDIlib_frame_format_type_e::
+				NDIlib_frame_format_type_progressive;
 
-	filter->ndi_video_frame.picture_aspect_ratio = 1.778;
+		// TODO allow format to change
+		filter->ndi_video_frame.FourCC = NDIlib_FourCC_type_RGBA;
+	}
 
-	filter->ndi_video_frame.frame_format_type =
-		NDIlib_frame_format_type_e::NDIlib_frame_format_type_progressive;
-
+	// Update dimensions
 	filter->ndi_video_frame.xres = width;
 	filter->ndi_video_frame.yres = height;
-
-	// TODO allow format to change
-	filter->ndi_video_frame.FourCC = NDIlib_FourCC_type_RGBA;
 
 	// TODO allow depth change (this is everywhere depth is used)
 	filter->ndi_video_frame.line_stride_in_bytes = width * depth;
@@ -113,7 +116,7 @@ inline static void create(void *data, uint32_t width, uint32_t height,
 			  uint32_t depth)
 {
 	auto filter = (struct filter *)data;
-	
+
 	if (filter->frame_allocated) {
 		warn("NDI5 frame buffers destroyed unexpectedly");
 		Framebuffers::destroy(filter);
@@ -125,7 +128,6 @@ inline static void create(void *data, uint32_t width, uint32_t height,
 		ptr = static_cast<uint8_t *>(bzalloc(width * height * depth));
 	});
 	filter->frame_allocated = true;
-	
 
 	// Make sure to update the frame buffer meta data
 	update(filter, width, height, depth);
@@ -211,35 +213,30 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	gs_projection_pop();
 	gs_viewport_pop();
 
-	//uint32_t linesize;
-	//uint8_t *texture_data;
-
 	// Map OTHER staging surface in order to copy texture into current ndi frame_buffer
 	if (gs_stagesurface_map(filter->staging_surface[!filter->buffer_swap],
 				&filter->texture_data, &filter->linesize)) {
 
 		if (filter->buffer_swap)
 			memcpy(&filter->ndi_frame_buffers[0][0],
-			       filter->texture_data,
-			       filter->size);
+			       filter->texture_data, filter->size);
 		else
 			memcpy(&filter->ndi_frame_buffers[1][0],
-			       filter->texture_data,
-			       filter->size);
+			       filter->texture_data, filter->size);
 
 		gs_stagesurface_unmap(
 			filter->staging_surface[!filter->buffer_swap]);
-	}	
+	}
+
+	// STAGE THE NEXT FRAME
+	gs_stage_texture(filter->staging_surface[!filter->buffer_swap],
+			 filter->buffer_texture[filter->buffer_swap]);
 
 	filter->ndi_video_frame.p_data =
 		filter->ndi_frame_buffers[filter->buffer_swap];
 
 	ndi5_lib->send_send_video_async_v2(filter->ndi_sender,
-						&filter->ndi_video_frame);
-
-	// STAGE THE NEXT FRAME
-	gs_stage_texture(filter->staging_surface[filter->buffer_swap],
-			 filter->buffer_texture[!filter->buffer_swap]);
+					   &filter->ndi_video_frame);
 
 	filter->buffer_swap = !filter->buffer_swap;
 
@@ -322,7 +319,6 @@ static void filter_destroy(void *data)
 
 	obs_remove_main_render_callback(filter_render_callback, filter);
 
-
 	// Destroy sender
 	// v1
 
@@ -360,6 +356,13 @@ static void filter_video_render(void *data, gs_effect_t *effect)
 		return;
 
 	obs_source_skip_video_filter(filter->context);
+}
+
+static void filter_video_tick(void *data, float seconds)
+{
+	UNUSED_PARAMETER(data);
+	UNUSED_PARAMETER(seconds);
+	//auto filter = (struct filter *)data;
 }
 
 // Writes a simple log entry to OBS

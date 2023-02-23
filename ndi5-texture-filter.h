@@ -61,6 +61,7 @@ static void filter_destroy(void *data);
 static void filter_render_callback(void *data, uint32_t cx, uint32_t cy);
 static void filter_update(void *data, obs_data_t *settings);
 static void filter_video_render(void *data, gs_effect_t *effect);
+static void filter_video_tick(void *data, float seconds);
 
 // Shared texture stuff
 
@@ -108,6 +109,13 @@ struct filter {
 	uint32_t linesize;
 	uint8_t *texture_data;
 	bool texture_data_malloc;
+
+	std::atomic<bool> render_frame;
+
+	std::atomic<uint64_t> tick_timestamp;
+	std::atomic<uint64_t> render_timestamp;
+
+	bool first_run_update;
 };
 
 struct obs_source_info create_filter_info()
@@ -125,6 +133,7 @@ struct obs_source_info create_filter_info()
 	filter_info.destroy = filter_destroy;
 	filter_info.video_render = filter_video_render;
 	filter_info.update = filter_update;
+	filter_info.video_tick = filter_video_tick;
 
 	return filter_info;
 };
