@@ -1,7 +1,20 @@
 #include "ndi5-texture-filter.h"
 
+#include "inc/Processing.NDI.Lib.h"
+
+#include <thread>
+
+// TODO deside how to name all the plugins (obs-xxx-filter vs what we use inside, ndi5-texture-filter..etc)
+// TODO compare reading styles of std::ranges vs oldschool
+#include <ranges>
+#include <future>
+
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(OBS_PLUGIN, OBS_PLUGIN_LANG)
+
+//HMODULE dll;
+
+const NDIlib_v5 *ndi5_lib = nullptr;
 
 namespace NDI5Filter {
 
@@ -29,23 +42,150 @@ static void filter_defaults(obs_data_t *settings)
 	UNUSED_PARAMETER(settings);
 }
 
+namespace Textures {
+
+inline static void destroy(void *data)
+{
+	auto filter = (struct filter *)data;
+
+	std::ranges::for_each(filter->staging_surface, gs_stagesurface_destroy);
+	std::ranges::for_each(filter->buffer_texture, gs_texture_destroy);
+}
+
+inline static void create(void *data, uint32_t width, uint32_t height)
+{
+	auto filter = (struct filter *)data;
+
+	for (auto &elm : filter->staging_surface)
+		elm = gs_stagesurface_create(width, height,
+					     filter->texture_format);
+
+	for (auto &elm : filter->buffer_texture)
+		elm = gs_texture_create(width, height, filter->texture_format,
+					1, NULL, GS_RENDER_TARGET);
+}
+
+} // namespace Textures
+
+namespace Framebuffers {
+
+// Sends an null frame to NDI to flush the last frame and allows us to free our memory
+inline static void flush(void *data)
+{
+	auto filter = (struct filter *)data;
+	// v1
+
+	ndi5_lib->send_send_video_async_v2(filter->ndi_sender, NULL);
+}
+
+inline static void update(void *data, uint32_t width, uint32_t height,
+			  uint32_t depth)
+{
+	auto filter = (struct filter *)data;
+
+	filter->ndi_video_frame.frame_rate_D = 1001;
+	filter->ndi_video_frame.frame_rate_N = 60000;
+	//filter->ndi_video_frame.timestamp
+	//filter->ndi_video_frame.timecode = NDIlib_send_timecode_synthesize;
+
+	filter->ndi_video_frame.picture_aspect_ratio = 1.778;
+
+	filter->ndi_video_frame.frame_format_type = NDIlib_frame_format_type_e::NDIlib_frame_format_type_progressive;
+
+	//std::string xx = std::to_string(width);
+	//std::string yy = std::to_string(height);
+
+	//blog(LOG_INFO, xx.c_str());
+	//blog(LOG_INFO, yy.c_str());
+
+	filter->ndi_video_frame.xres = width;
+	filter->ndi_video_frame.yres = height;
+
+	// TODO allow format to change
+	filter->ndi_video_frame.FourCC = NDIlib_FourCC_type_RGBA;
+
+	// TODO allow depth change (this is everywhere depth is used)
+	filter->ndi_video_frame.line_stride_in_bytes = width * depth;
+}
+
+inline static void destroy(void *data)
+{
+	auto filter = (struct filter *)data;
+
+	std::ranges::for_each(filter->ndi_frame_buffers,
+			      [](auto &ptr) { bfree(ptr); });
+}
+
+inline static void create(void *data, uint32_t width, uint32_t height,
+			  uint32_t depth)
+{
+	auto filter = (struct filter *)data;
+
+	// Create the frame buffers
+	std::ranges::for_each(filter->ndi_frame_buffers, [width, height,
+							  depth](auto &ptr) {
+		ptr = static_cast<char *>(bzalloc(width * height * depth));
+	});
+
+	// Make sure to update the frame buffer meta data
+	update(filter, width, height, depth);
+
+	// Resize our frame data
+	// remove any existing
+
+	if (filter->frame_allocated) {
+		bfree(filter->frame_buffer1);
+		bfree(filter->frame_buffer2);
+	}
+	filter->frame_buffer1 = (uint8_t *)(bzalloc(width * height * depth));
+	filter->frame_buffer2 = (uint8_t *)(bzalloc(width * height * depth));
+	filter->frame_allocated = true;
+
+	// texture data
+	if (filter->texture_data_malloc)
+		bfree(filter->texture_data);
+	filter->texture_data = (uint8_t *)(bzalloc(width * height * depth));
+	filter->texture_data_malloc = true;
+}
+
+} // namespace Framebuffers
+
 namespace Texture {
 
 static void reset(void *data, uint32_t width, uint32_t height)
 {
 	auto filter = (struct filter *)data;
 
-	gs_texture_destroy(filter->shared_texture);
+	// Texture buffers
+	Textures::destroy(filter);
+	Textures::create(filter, width, height);
 
-	filter->shared_texture = NULL;
+	// NDI frame buffers
+	Framebuffers::flush(filter);
+	Framebuffers::destroy(filter);
+	Framebuffers::create(filter, width, height, filter->depth);
 
+	// Update Texture data
 	filter->width = width;
 	filter->height = height;
+	filter->size = width * height * filter->depth;
 
-	filter->shared_texture =
-		gs_texture_create(width, height, filter->shared_format, 1, NULL,
-				  GS_RENDER_TARGET | GS_SHARED_TEX);
+	// Peace out if our sender exists
+	if (filter->sender_created)
+		return;
 
+	NDIlib_send_create_t desc;
+	desc.p_ndi_name = "Test NDI";
+	desc.clock_video = false;
+
+	//v1
+	filter->ndi_sender = ndi5_lib->send_create(&desc);
+
+	// error out here if invalid??
+	// can_render flag? ...
+	if (!filter->ndi_sender) {
+		error("could not create ndi sender");
+	}
 }
 
 static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
@@ -63,8 +203,9 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	filter->prev_target = gs_get_render_target();
 	filter->prev_space = gs_get_color_space();
 
-	gs_set_render_target_with_color_space(filter->shared_texture, NULL,
-					      GS_CS_SRGB);
+	// Render to current buffer
+	gs_set_render_target_with_color_space(
+		filter->buffer_texture[0], NULL, GS_CS_SRGB);
 
 	gs_set_viewport(0, 0, filter->width, filter->height);
 
@@ -88,6 +229,51 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	gs_matrix_pop();
 	gs_projection_pop();
 	gs_viewport_pop();
+
+	// Render OTHER buffer to current staging surface
+	gs_stage_texture(filter->staging_surface[filter->buffer_swap],
+			 filter->buffer_texture[0]);
+
+	uint32_t linesize;
+	uint8_t *texture_data;
+	bool mapped = false;
+
+	// Map OTHER staging surface in order to copy texture into current ndi frame_buffer
+	if (gs_stagesurface_map(filter->staging_surface[!filter->buffer_swap],
+				&texture_data, &linesize)) {
+
+		if (filter->buffer_swap)
+			memcpy(&filter->frame_buffer1[0], texture_data,
+			       filter->size);
+		else
+			memcpy(&filter->frame_buffer2[0], texture_data,
+			       filter->size);
+
+		gs_stagesurface_unmap(
+			filter->staging_surface[!filter->buffer_swap]);
+
+		mapped = true;
+	}
+
+	texture_data = nullptr;
+
+	if (mapped) {
+
+		filter->ndi_video_frame.p_data =
+			filter->buffer_swap ? filter->frame_buffer1
+					    : filter->frame_buffer2;
+
+		ndi5_lib->send_send_video_async_v2(filter->ndi_sender,
+						   &filter->ndi_video_frame);
+	} else {
+		// ??
+		info("not mapped");
+		ndi5_lib->send_send_video_async_v2(filter->ndi_sender, NULL);
+	}
+
+	filter->buffer_swap = !filter->buffer_swap;
+
+	return;
 }
 
 } // namespace Texture
@@ -138,17 +324,24 @@ static void *filter_create(obs_data_t *settings, obs_source_t *source)
 	auto filter = (struct filter *)bzalloc(sizeof(NDI5Filter::filter));
 
 	// Baseline everything
-	filter->prev_target = nullptr;
-	filter->shared_texture = nullptr;
-	filter->shared_format = OBS_PLUGIN_COLOR_SPACE;
+	filter->buffer_swap = false;
+	filter->texture_format = OBS_PLUGIN_COLOR_SPACE;
 	filter->width = 0;
 	filter->height = 0;
+	filter->frame_allocated = false;
+	filter->sender_created = false;
+
+	// TODO undevtest this variable
+	filter->depth = 4;
 
 	// Setup the obs context
 	filter->context = source;
 
 	// force an update
 	filter_update(filter, settings);
+
+	// Create NDI thread
+	//std::jthread ndi_video_thread(ndi_video_thread)
 
 	return filter;
 }
@@ -157,20 +350,46 @@ static void filter_destroy(void *data)
 {
 	auto filter = (struct filter *)data;
 
-	if (filter) {
-		obs_remove_main_render_callback(filter_render_callback, filter);
+	if (!filter)
+		return;
 
-		obs_enter_graphics();
+	obs_remove_main_render_callback(filter_render_callback, filter);
 
-		gs_texture_destroy(filter->shared_texture);
+	// Stop rendering flag maybe??
 
-		filter->shared_texture = nullptr;
-		filter->prev_target = nullptr;
+	// Flush NDI
+	Framebuffers::flush(filter);
 
-		obs_leave_graphics();
+	// Destroy any framebuffers
+	Framebuffers::destroy(filter);
 
-		bfree(filter);
+	// Destroy sender
+	// v1
+
+	if (filter->sender_created) {
+		ndi5_lib->send_destroy(filter->ndi_sender);
 	}
+
+	// texture data
+	if (filter->texture_data_malloc) {
+		bfree(filter->texture_data);
+	}
+
+	// Cleanup OBS textures and surfaces
+	obs_enter_graphics();
+	std::ranges::for_each(filter->staging_surface, gs_stagesurface_destroy);
+	std::ranges::for_each(filter->buffer_texture, gs_texture_destroy);
+	filter->prev_target = nullptr;
+	obs_leave_graphics();
+
+	// Cleanup NDI some more
+	// Remove any frame_data
+	if (filter->frame_allocated) {
+		bfree(filter->frame_buffer1);
+		bfree(filter->frame_buffer2);
+	}
+
+	bfree(filter);
 }
 
 static void filter_video_render(void *data, gs_effect_t *effect)
@@ -185,11 +404,25 @@ static void filter_video_render(void *data, gs_effect_t *effect)
 	obs_source_skip_video_filter(filter->context);
 }
 
+
+static void filter_video_tick(void *data, float seconds)
+{
+	UNUSED_PARAMETER(seconds);
+
+	auto filter = (struct filter *)data;
+
+
+	//filter->can_render = true;
+	//std::string xx = std::to_string(seconds);
+	//blog(LOG_INFO, xx.c_str());
+}
+
+
 // Writes a simple log entry to OBS
 void report_version()
 {
 #ifdef DEBUG
-	info("you can haz ndi5-texture tooz (Version: %s)",
+	info("you can haz maybe obs-ndi5-texture tooz (Version: %s)",
 	     OBS_PLUGIN_VERSION_STRING);
 #else
 	info("obs-ndi5-texture [mrmahgu] - version %s",
@@ -199,6 +432,97 @@ void report_version()
 
 } // namespace NDI5Filter
 
+typedef const NDIlib_v5 *(*NDIlib_v5_load_)(void);
+
+std::unique_ptr<QLibrary> ndi5_qlibrary;
+
+/*
+static void ndi_video_thread(HMODULE dll, std::mutex mtx,
+			     std::condition_variable &cv, bool &stop_thread)
+{
+	// create ndi stuff here
+	const NDIlib_v5 *(*NDIlib_v5_load)(void) = NULL;
+
+	*((FARPROC *)&NDIlib_v5_load) = GetProcAddress(dll, "NDIlib_v5_load");
+
+	if (!NDIlib_v5_load) {
+		if (dll)
+			FreeLibrary(dll);
+		return;
+	}
+
+	const NDIlib_v5 *ndi5_lib = NDIlib_v5_load();
+
+	if (!ndi5_lib) {
+		if (dll)
+			FreeLibrary(dll);
+		return;
+	}
+
+	auto res = ndi5_lib->NDIlib_initialize();
+	if (!res) {
+		info("can not init ndi");
+	}
+	info("ndi rdy");
+
+	//std::unique_lock<std::mutex> lock(mtx);
+}
+*/
+
+const NDIlib_v5 *load_ndi5_lib()
+{
+	QFileInfo library_path(QDir(QString(qgetenv(NDILIB_REDIST_FOLDER)))
+				       .absoluteFilePath(NDILIB_LIBRARY_NAME));
+
+	if (library_path.exists() && library_path.isFile()) {
+
+		QString library_file_path = library_path.absoluteFilePath();
+
+		ndi5_qlibrary =
+			std::make_unique<QLibrary>(library_file_path, nullptr);
+
+		if (ndi5_qlibrary->load()) {
+			info("NDI runtime loaded");
+
+			NDIlib_v5_load_ library_load =
+				(NDIlib_v5_load_)ndi5_qlibrary->resolve(
+					"NDIlib_v5_load");
+
+			if (library_load == nullptr) {
+				error("NDI runtime 5 was not detected");
+				return nullptr;
+			}
+
+			ndi5_qlibrary.reset();
+
+			return library_load();
+		}
+		ndi5_qlibrary.reset();
+	}
+	error("NDI runtime could not be located.");
+	return nullptr;
+}
+
+/*
+const bool load_ndi5_lib_v2()
+{
+
+	QFileInfo library_path(QDir(QString(qgetenv(NDILIB_REDIST_FOLDER)))
+				       .absoluteFilePath(NDILIB_LIBRARY_NAME));
+
+	QString library_file_path = library_path.absoluteFilePath();
+
+	dll = LoadLibrary(library_file_path.toStdWString().c_str());
+
+	if (!dll) {
+		error("could not load library v2");
+		return false;
+	}
+
+	return true;
+}
+
+*/
 bool obs_module_load(void)
 {
 	auto filter_info = NDI5Filter::create_filter_info();
@@ -207,7 +531,39 @@ bool obs_module_load(void)
 
 	NDI5Filter::report_version();
 
+	// v1
+
+	ndi5_lib = load_ndi5_lib();
+
+	if (!ndi5_lib) {
+		error("critical error");
+		return false;
+	}
+
+	if (!ndi5_lib->initialize()) {
+		error("NDI said no -- your CPU is unsupported");
+		return false;
+	}
+
+	// v2
+	/*
+	if (!load_ndi5_lib_v2()) {
+		// bad
+		return false;
+	}
+
+	*/
+
+	//info("NDI5 (%s) ready", ndi5_lib->version());
+
 	return true;
 }
 
-void obs_module_unload() {}
+void obs_module_unload()
+{
+	// v1
+
+	if (ndi5_qlibrary) {
+		ndi5_qlibrary.reset();
+	}
+}

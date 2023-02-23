@@ -1,7 +1,19 @@
 #pragma once
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <Windows.h>
+
+#include <memory>
+
 #include <obs-module.h>
 #include <graphics/graphics.h>
+
+#include <QString>
+#include <QLibrary>
+#include <QFileInfo>
+#include <QDir>
 
 #include "inc/Processing.NDI.Lib.h"
 
@@ -48,6 +60,7 @@ static void filter_destroy(void *data);
 static void filter_render_callback(void *data, uint32_t cx, uint32_t cy);
 static void filter_update(void *data, obs_data_t *settings);
 static void filter_video_render(void *data, gs_effect_t *effect);
+//static void filter_video_tick(void *data, float seconds);
 
 // Shared texture stuff
 
@@ -63,12 +76,38 @@ struct filter {
 
 	uint32_t width;
 	uint32_t height;
+	uint32_t depth;
+	uint32_t size;
 
 	enum gs_color_space prev_space;
-	enum gs_color_format shared_format;
+	enum gs_color_format texture_format;
 
 	gs_texture_t *prev_target;
-	gs_texture_t *shared_texture;
+
+	gs_texture_t *buffer_texture[2];
+	gs_stagesurf_t *staging_surface[2];
+
+	NDIlib_video_frame_v2_t ndi_video_frame;
+
+	NDIlib_send_instance_t ndi_sender;
+
+	bool sender_created;
+
+	// Constant frame memory buffer
+	uint8_t *frame_buffer1;
+	uint8_t *frame_buffer2;
+
+	bool frame_allocated;
+
+	// NDI frame buffers
+	void *ndi_frame_buffers[2];
+
+	// Buffer index state
+	bool buffer_swap;
+	bool can_render;
+
+	uint8_t *texture_data;
+	bool texture_data_malloc;
 };
 
 struct obs_source_info create_filter_info()
@@ -86,6 +125,7 @@ struct obs_source_info create_filter_info()
 	filter_info.destroy = filter_destroy;
 	filter_info.video_render = filter_video_render;
 	filter_info.update = filter_update;
+	//filter_info.video_tick = filter_video_tick;
 
 	return filter_info;
 };
