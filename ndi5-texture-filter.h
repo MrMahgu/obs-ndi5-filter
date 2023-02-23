@@ -94,17 +94,16 @@ struct filter {
 	bool sender_created;
 
 	// Constant frame memory buffer
-	uint8_t *frame_buffer1;
-	uint8_t *frame_buffer2;
+	//uint8_t *frame_buffer1;
+	//uint8_t *frame_buffer2;
 
 	bool frame_allocated;
 
 	// NDI frame buffers
-	void *ndi_frame_buffers[2];
+	uint8_t *ndi_frame_buffers[2];
 
 	// Buffer index state
-	std::atomic<bool> buffer_swap;
-	std::atomic<bool> can_render;
+	bool buffer_swap;	
 
 	uint32_t linesize;
 	uint8_t *texture_data;
