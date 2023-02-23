@@ -88,7 +88,8 @@ inline static void update(void *data, uint32_t width, uint32_t height,
 
 	filter->ndi_video_frame.picture_aspect_ratio = 1.778;
 
-	filter->ndi_video_frame.frame_format_type = NDIlib_frame_format_type_e::NDIlib_frame_format_type_progressive;
+	filter->ndi_video_frame.frame_format_type =
+		NDIlib_frame_format_type_e::NDIlib_frame_format_type_progressive;
 
 	filter->ndi_video_frame.xres = width;
 	filter->ndi_video_frame.yres = height;
@@ -162,13 +163,13 @@ static void reset(void *data, uint32_t width, uint32_t height)
 	filter->height = height;
 	filter->size = width * height * filter->depth;
 
-	if (filter->sender_created)	
+	if (filter->sender_created)
 		ndi5_lib->send_destroy(filter->ndi_sender);
 
 	NDIlib_send_create_t desc;
 	desc.p_ndi_name = "Test NDI";
 	desc.clock_video = false;
-	
+
 	filter->ndi_sender = ndi5_lib->send_create(&desc);
 
 	if (!filter->ndi_sender) {
@@ -177,6 +178,8 @@ static void reset(void *data, uint32_t width, uint32_t height)
 
 	filter->sender_created = true;
 }
+
+std::mutex _lock;
 
 static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 {
@@ -224,19 +227,19 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	gs_stage_texture(filter->staging_surface[filter->buffer_swap],
 			 filter->buffer_texture[!filter->buffer_swap]);
 
-	uint32_t linesize;
-	uint8_t *texture_data;
+	//uint32_t linesize;
+	//uint8_t *texture_data;
 	bool mapped = false;
 
 	// Map OTHER staging surface in order to copy texture into current ndi frame_buffer
 	if (gs_stagesurface_map(filter->staging_surface[!filter->buffer_swap],
-				&texture_data, &linesize)) {
+				&filter->texture_data, &filter->linesize)) {
 
 		if (filter->buffer_swap)
-			memcpy(&filter->frame_buffer1[0], texture_data,
+			memcpy(&filter->frame_buffer1[0], filter->texture_data,
 			       filter->size);
 		else
-			memcpy(&filter->frame_buffer2[0], texture_data,
+			memcpy(&filter->frame_buffer2[0], filter->texture_data,
 			       filter->size);
 
 		gs_stagesurface_unmap(
@@ -245,9 +248,11 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 		mapped = true;
 	}
 
-	texture_data = nullptr;
+	//texture_data = nullptr;
 
 	if (mapped) {
+
+		//filter->ndi_video_frame.timecode
 
 		filter->ndi_video_frame.p_data =
 			filter->buffer_swap ? filter->frame_buffer1
@@ -255,8 +260,6 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 
 		ndi5_lib->send_send_video_async_v2(filter->ndi_sender,
 						   &filter->ndi_video_frame);
-
-		ndi5_lib->send_send_video_async_v2(filter->ndi_sender, NULL); // ??
 
 	} else {
 		// ??
@@ -398,14 +401,14 @@ static void filter_video_render(void *data, gs_effect_t *effect)
 	obs_source_skip_video_filter(filter->context);
 }
 
-
 static void filter_video_tick(void *data, float seconds)
 {
 	UNUSED_PARAMETER(seconds);
 
 	auto filter = (struct filter *)data;
-}
 
+	filter->ndi_video_frame.timestamp += seconds;
+}
 
 // Writes a simple log entry to OBS
 void report_version()
@@ -489,8 +492,11 @@ bool obs_module_load(void)
 void obs_module_unload()
 {
 	// v1
+	if (ndi5_lib)
+		ndi5_lib->destroy();
 
 	if (ndi5_qlibrary) {
+		ndi5_qlibrary->unload();
 		ndi5_qlibrary.reset();
 	}
 }

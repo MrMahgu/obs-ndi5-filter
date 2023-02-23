@@ -6,6 +6,7 @@
 #include <Windows.h>
 
 #include <memory>
+#include <atomic>
 
 #include <obs-module.h>
 #include <graphics/graphics.h>
@@ -60,7 +61,7 @@ static void filter_destroy(void *data);
 static void filter_render_callback(void *data, uint32_t cx, uint32_t cy);
 static void filter_update(void *data, obs_data_t *settings);
 static void filter_video_render(void *data, gs_effect_t *effect);
-//static void filter_video_tick(void *data, float seconds);
+static void filter_video_tick(void *data, float seconds);
 
 // Shared texture stuff
 
@@ -103,9 +104,10 @@ struct filter {
 	void *ndi_frame_buffers[2];
 
 	// Buffer index state
-	bool buffer_swap;
+	std::atomic<bool> buffer_swap;
 	bool can_render;
 
+	uint32_t linesize;
 	uint8_t *texture_data;
 	bool texture_data_malloc;
 };
@@ -125,7 +127,7 @@ struct obs_source_info create_filter_info()
 	filter_info.destroy = filter_destroy;
 	filter_info.video_render = filter_video_render;
 	filter_info.update = filter_update;
-	//filter_info.video_tick = filter_video_tick;
+	filter_info.video_tick = filter_video_tick;
 
 	return filter_info;
 };
