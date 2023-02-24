@@ -85,9 +85,9 @@ struct filter {
 
 	gs_texture_t *prev_target;
 
-	gs_texture_t *buffer_texture[3];
-	gs_stagesurf_t *staging_surface[3];
-	uint8_t *ndi_frame_buffers[3];
+	gs_texture_t *buffer_texture[8];
+	gs_stagesurf_t *staging_surface[8];
+	uint8_t *ndi_frame_buffers[8];
 
 	NDIlib_video_frame_v2_t ndi_video_frame;
 
@@ -101,6 +101,7 @@ struct filter {
 	uint8_t *texture_data;
 
 	uint32_t buffer_index;
+	uint32_t frame_count;
 
 	bool first_run_update;
 };

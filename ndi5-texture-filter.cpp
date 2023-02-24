@@ -86,7 +86,7 @@ inline static void update(void *data, uint32_t width, uint32_t height,
 	if (!filter->first_run_update) {
 		filter->first_run_update = true;
 		filter->ndi_video_frame.frame_rate_D = 1000;
-		filter->ndi_video_frame.frame_rate_N = 60000;		
+		filter->ndi_video_frame.frame_rate_N = 60000;
 		filter->ndi_video_frame.picture_aspect_ratio = 1.778;
 		filter->ndi_video_frame.frame_format_type =
 			NDIlib_frame_format_type_e::
@@ -178,8 +178,10 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	if (filter->width != cx || filter->height != cy)
 		Texture::reset(filter, cx, cy);
 
-	uint32_t prev_buffer_index = filter->buffer_index == 0 ? 2 : filter->buffer_index - 1;
-	uint32_t next_buffer_index = filter->buffer_index == 2 ? 0 : filter->buffer_index + 1;
+	uint32_t prev_buffer_index =
+		filter->buffer_index == 0 ? 7 : filter->buffer_index - 1;
+	uint32_t next_buffer_index =
+		filter->buffer_index == 7 ? 0 : filter->buffer_index + 1;
 
 	gs_viewport_push();
 	gs_projection_push();
@@ -220,17 +222,12 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	if (gs_stagesurface_map(filter->staging_surface[prev_buffer_index],
 				&filter->texture_data, &filter->linesize)) {
 
-		
 		memcpy(&filter->ndi_frame_buffers[filter->buffer_index][0],
 		       filter->texture_data, filter->size);
-		
+
 		gs_stagesurface_unmap(
 			filter->staging_surface[prev_buffer_index]);
 	}
-
-	// STAGE THE NEXT FRAME
-	gs_stage_texture(filter->staging_surface[filter->buffer_index],
-			 filter->buffer_texture[prev_buffer_index]);
 
 	filter->ndi_video_frame.p_data =
 		filter->ndi_frame_buffers[next_buffer_index];
@@ -238,7 +235,11 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	ndi5_lib->send_send_video_async_v2(filter->ndi_sender,
 					   &filter->ndi_video_frame);
 
-	filter->buffer_index = next_buffer_index;	
+	// STAGE THE NEXT FRAME
+	gs_stage_texture(filter->staging_surface[filter->buffer_index],
+			 filter->buffer_texture[prev_buffer_index]);
+
+	filter->buffer_index = next_buffer_index;
 
 	return;
 }
@@ -360,9 +361,10 @@ static void filter_video_render(void *data, gs_effect_t *effect)
 
 static void filter_video_tick(void *data, float seconds)
 {
-	UNUSED_PARAMETER(data);
+	//UNUSED_PARAMETER(data);
 	UNUSED_PARAMETER(seconds);
-	//auto filter = (struct filter *)data;
+	auto filter = (struct filter *)data;
+	filter->frame_count++;
 }
 
 // Writes a simple log entry to OBS
