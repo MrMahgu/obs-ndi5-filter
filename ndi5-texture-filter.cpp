@@ -191,7 +191,7 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	filter->prev_target = gs_get_render_target();
 	filter->prev_space = gs_get_color_space();
 
-	// Render to current buffer
+	// RENDER THE CURRENT FRAME
 	gs_set_render_target_with_color_space(
 		filter->buffer_texture[filter->buffer_index], NULL, GS_CS_SRGB);
 
@@ -218,7 +218,7 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	gs_projection_pop();
 	gs_viewport_pop();
 
-	// Map OTHER staging surface in order to copy texture into current ndi frame_buffer
+	// MAP THE PREVIOUS FRAME
 	if (gs_stagesurface_map(filter->staging_surface[prev_buffer_index],
 				&filter->texture_data, &filter->linesize)) {
 
@@ -229,6 +229,9 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 			filter->staging_surface[prev_buffer_index]);
 	}
 
+	// SET THE NEXT FRAME
+	// If this was the very first frame, it wont'get actually get rendered
+	// until frame buffer_count+1
 	filter->ndi_video_frame.p_data =
 		filter->ndi_frame_buffers[next_buffer_index];
 
