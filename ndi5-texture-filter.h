@@ -85,8 +85,9 @@ struct filter {
 
 	gs_texture_t *prev_target;
 
-	gs_texture_t *buffer_texture[2];
-	gs_stagesurf_t *staging_surface[2];
+	gs_texture_t *buffer_texture[3];
+	gs_stagesurf_t *staging_surface[3];
+	uint8_t *ndi_frame_buffers[3];
 
 	NDIlib_video_frame_v2_t ndi_video_frame;
 
@@ -94,26 +95,12 @@ struct filter {
 
 	bool sender_created;
 
-	// Constant frame memory buffer
-	//uint8_t *frame_buffer1;
-	//uint8_t *frame_buffer2;
-
 	bool frame_allocated;
-
-	// NDI frame buffers
-	uint8_t *ndi_frame_buffers[2];
-
-	// Buffer index state
-	bool buffer_swap;	
 
 	uint32_t linesize;
 	uint8_t *texture_data;
-	bool texture_data_malloc;
 
-	std::atomic<bool> render_frame;
-
-	std::atomic<uint64_t> tick_timestamp;
-	std::atomic<uint64_t> render_timestamp;
+	uint32_t buffer_index;
 
 	bool first_run_update;
 };

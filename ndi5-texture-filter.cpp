@@ -178,6 +178,9 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	if (filter->width != cx || filter->height != cy)
 		Texture::reset(filter, cx, cy);
 
+	uint32_t prev_buffer_index = filter->buffer_index == 0 ? 2 : filter->buffer_index - 1;
+	uint32_t next_buffer_index = filter->buffer_index == 2 ? 0 : filter->buffer_index + 1;
+
 	gs_viewport_push();
 	gs_projection_push();
 	gs_matrix_push();
@@ -188,7 +191,7 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 
 	// Render to current buffer
 	gs_set_render_target_with_color_space(
-		filter->buffer_texture[!filter->buffer_swap], NULL, GS_CS_SRGB);
+		filter->buffer_texture[filter->buffer_index], NULL, GS_CS_SRGB);
 
 	gs_set_viewport(0, 0, filter->width, filter->height);
 
@@ -214,31 +217,28 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	gs_viewport_pop();
 
 	// Map OTHER staging surface in order to copy texture into current ndi frame_buffer
-	if (gs_stagesurface_map(filter->staging_surface[!filter->buffer_swap],
+	if (gs_stagesurface_map(filter->staging_surface[prev_buffer_index],
 				&filter->texture_data, &filter->linesize)) {
 
-		if (filter->buffer_swap)
-			memcpy(&filter->ndi_frame_buffers[0][0],
-			       filter->texture_data, filter->size);
-		else
-			memcpy(&filter->ndi_frame_buffers[1][0],
-			       filter->texture_data, filter->size);
-
+		
+		memcpy(&filter->ndi_frame_buffers[filter->buffer_index][0],
+		       filter->texture_data, filter->size);
+		
 		gs_stagesurface_unmap(
-			filter->staging_surface[!filter->buffer_swap]);
+			filter->staging_surface[prev_buffer_index]);
 	}
 
 	// STAGE THE NEXT FRAME
-	gs_stage_texture(filter->staging_surface[!filter->buffer_swap],
-			 filter->buffer_texture[filter->buffer_swap]);
+	gs_stage_texture(filter->staging_surface[filter->buffer_index],
+			 filter->buffer_texture[prev_buffer_index]);
 
 	filter->ndi_video_frame.p_data =
-		filter->ndi_frame_buffers[filter->buffer_swap];
+		filter->ndi_frame_buffers[next_buffer_index];
 
 	ndi5_lib->send_send_video_async_v2(filter->ndi_sender,
 					   &filter->ndi_video_frame);
 
-	filter->buffer_swap = !filter->buffer_swap;
+	filter->buffer_index = next_buffer_index;	
 
 	return;
 }
@@ -291,8 +291,8 @@ static void *filter_create(obs_data_t *settings, obs_source_t *source)
 	auto filter = (struct filter *)bzalloc(sizeof(NDI5Filter::filter));
 
 	// Baseline everything
-	filter->buffer_swap = false;
 	filter->texture_format = OBS_PLUGIN_COLOR_SPACE;
+	filter->buffer_index = 0;
 	filter->width = 0;
 	filter->height = 0;
 	filter->frame_allocated = false;
