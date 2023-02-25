@@ -365,15 +365,17 @@ jobs:
           for file in ${{ github.workspace }}/**/@(*.exe|*.zip); do
             echo "    ${file##*/}: $(sha256sum "${file}" | cut -d " " -f 1)" >> ${{ github.workspace }}/CHECKSUMS.txt
           done
+          cat ${{ github.workspace }}/CHECKSUMS.txt
 
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
         with:
-          draft: true
+          draft: false
+          append_body: true
           prerelease: ${{ contains(steps.metadata.outputs.version, 'rc') || contains(steps.metadata.outputs.version, 'beta') }}
           tag_name: ${{ steps.metadata.outputs.version }}
-          name: "${{ env.PLUGIN_NAME }} ${{ steps.metadata.outputs.version }}"
+          name: "${{ env.PLUGIN_NAME }} ${{ steps.metadata.outputs.version }}"          
           body_path: ${{ github.workspace }}/CHECKSUMS.txt
           files: |
             ${{ github.workspace }}/**/*.zip
