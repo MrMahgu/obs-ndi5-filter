@@ -75,7 +75,7 @@
 
 // The type instance for a frame-synchronizer.
 struct NDIlib_framesync_instance_type;
-typedef struct NDIlib_framesync_instance_type* NDIlib_framesync_instance_t;
+typedef struct NDIlib_framesync_instance_type *NDIlib_framesync_instance_t;
 
 // Create a frame synchronizer instance that can be used to get frames from a receiver. Once this receiver
 // has been bound to a frame-sync then you should use it in order to receive video frames. You can continue
@@ -84,7 +84,8 @@ typedef struct NDIlib_framesync_instance_type* NDIlib_framesync_instance_t;
 // receiver after the frame-sync has been destroyed.
 //
 PROCESSINGNDILIB_API
-NDIlib_framesync_instance_t NDIlib_framesync_create(NDIlib_recv_instance_t p_receiver);
+NDIlib_framesync_instance_t
+NDIlib_framesync_create(NDIlib_recv_instance_t p_receiver);
 
 // Destroy a frame-sync implementation.
 PROCESSINGNDILIB_API
@@ -111,19 +112,17 @@ void NDIlib_framesync_capture_audio(
 	// The frame sync instance data.
 	NDIlib_framesync_instance_t p_instance,
 	// The destination audio buffer that you wish to have filled in.
-	NDIlib_audio_frame_v2_t* p_audio_data,
+	NDIlib_audio_frame_v2_t *p_audio_data,
 	// Your desired sample rate, number of channels and the number of desired samples.
-	int sample_rate, int no_channels, int no_samples
-);
+	int sample_rate, int no_channels, int no_samples);
 PROCESSINGNDILIB_API
 void NDIlib_framesync_capture_audio_v2(
 	// The frame sync instance data.
 	NDIlib_framesync_instance_t p_instance,
 	// The destination audio buffer that you wish to have filled in.
-	NDIlib_audio_frame_v3_t* p_audio_data,
+	NDIlib_audio_frame_v3_t *p_audio_data,
 	// Your desired sample rate, number of channels and the number of desired samples.
-	int sample_rate, int no_channels, int no_samples
-);
+	int sample_rate, int no_channels, int no_samples);
 
 // Free audio returned by NDIlib_framesync_capture_audio.
 PROCESSINGNDILIB_API
@@ -131,15 +130,13 @@ void NDIlib_framesync_free_audio(
 	// The frame sync instance data.
 	NDIlib_framesync_instance_t p_instance,
 	// The destination audio buffer that you wish to have filled in.
-	NDIlib_audio_frame_v2_t* p_audio_data
-);
+	NDIlib_audio_frame_v2_t *p_audio_data);
 PROCESSINGNDILIB_API
 void NDIlib_framesync_free_audio_v2(
 	// The frame sync instance data.
 	NDIlib_framesync_instance_t p_instance,
 	// The destination audio buffer that you wish to have filled in.
-	NDIlib_audio_frame_v3_t* p_audio_data
-);
+	NDIlib_audio_frame_v3_t *p_audio_data);
 
 // This function will tell you the approximate current depth of the audio queue to give you an indication
 // of the number of audio samples you can request. Note that if you should treat the results of this function
@@ -179,10 +176,10 @@ void NDIlib_framesync_capture_video(
 	// The frame sync instance data.
 	NDIlib_framesync_instance_t p_instance,
 	// The destination video buffer that you wish to have filled in.
-	NDIlib_video_frame_v2_t* p_video_data,
+	NDIlib_video_frame_v2_t *p_video_data,
 	// The frame type that you would prefer, all effort is made to match these.
-	NDIlib_frame_format_type_e field_type NDILIB_CPP_DEFAULT_VALUE(NDIlib_frame_format_type_progressive)
-);
+	NDIlib_frame_format_type_e field_type
+		NDILIB_CPP_DEFAULT_VALUE(NDIlib_frame_format_type_progressive));
 
 // Free audio returned by NDIlib_framesync_capture_video.
 //
@@ -191,5 +188,4 @@ void NDIlib_framesync_free_video(
 	// The frame sync instance data.
 	NDIlib_framesync_instance_t p_instance,
 	// The destination video buffer that you wish to have filled in.
-	NDIlib_video_frame_v2_t* p_video_data
-);
+	NDIlib_video_frame_v2_t *p_video_data);
