@@ -79,17 +79,15 @@ inline static void create(void *data, uint32_t width, uint32_t height)
 
 namespace Framebuffers {
 
-// Sends an null frame to NDI to flush the last frame and allows us to free our memory
+// Forces NDI to process the previous frame, freeing the use of any memory we gave it
 inline static void flush(void *data)
 {
 	auto filter = (struct filter *)data;
-	// v1
-
 	ndi5_lib->send_send_video_async_v2(filter->ndi_sender, NULL);
 }
 
-inline static void update(void *data, uint32_t width, uint32_t height,
-			  uint32_t depth)
+inline static void update_ndi_video_frame(void *data, uint32_t width,
+					  uint32_t height, uint32_t depth)
 {
 	auto filter = (struct filter *)data;
 
@@ -117,7 +115,6 @@ inline static void update(void *data, uint32_t width, uint32_t height,
 inline static void destroy(void *data)
 {
 	auto filter = (struct filter *)data;
-
 	std::ranges::for_each(filter->ndi_frame_buffers,
 			      [](auto &ptr) { bfree(ptr); });
 }
@@ -139,8 +136,8 @@ inline static void create(void *data, uint32_t width, uint32_t height,
 	});
 	filter->frame_allocated = true;
 
-	// Make sure to update the frame buffer meta data
-	update(filter, width, height, depth);
+	// Update NDI5 ndi_video_frame desc
+	update_ndi_video_frame(filter, width, height, depth);
 }
 
 } // namespace Framebuffers
@@ -165,9 +162,11 @@ static void reset(void *data, uint32_t width, uint32_t height)
 	Framebuffers::destroy(filter);
 	Framebuffers::create(filter, width, height, filter->depth);
 
+	// Destroy the NDI5 sender
 	if (filter->sender_created)
 		ndi5_lib->send_destroy(filter->ndi_sender);
 
+	// Setup the new NDI5 stream
 	NDIlib_send_create_t desc;
 	desc.p_ndi_name = filter->sender_name.c_str();
 	desc.clock_video = false;
@@ -181,6 +180,22 @@ static void reset(void *data, uint32_t width, uint32_t height)
 	filter->sender_created = true;
 }
 
+// Returns a std::pair with previous and next buffer indexes
+static std::pair<int, int> calculate_buffer_indexes(void *data)
+{
+	auto filter = (struct filter *)data;
+
+	uint32_t prev_buffer_index = filter->buffer_index == 0
+					     ? NDI_BUFFER_MAX
+					     : filter->buffer_index - 1;
+
+	uint32_t next_buffer_index = filter->buffer_index == NDI_BUFFER_MAX
+					     ? 0
+					     : filter->buffer_index + 1;
+
+	return std::make_pair(prev_buffer_index, next_buffer_index);
+}
+
 static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 {
 	auto filter = (struct filter *)data;
@@ -188,10 +203,8 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	if (filter->width != cx || filter->height != cy)
 		Texture::reset(filter, cx, cy);
 
-	uint32_t prev_buffer_index =
-		filter->buffer_index == 0 ? 7 : filter->buffer_index - 1;
-	uint32_t next_buffer_index =
-		filter->buffer_index == 7 ? 0 : filter->buffer_index + 1;
+	auto [prev_buffer_index, next_buffer_index] =
+		calculate_buffer_indexes(filter);
 
 	gs_viewport_push();
 	gs_projection_push();
@@ -283,7 +296,7 @@ static void filter_render_callback(void *data, uint32_t cx, uint32_t cy)
 	if (target_width == 0 || target_height == 0)
 		return;
 
-	// Render latest
+	// Render
 	Texture::render(filter, target, target_width, target_height);
 }
 
@@ -295,12 +308,9 @@ static void filter_update(void *data, obs_data_t *settings)
 
 	obs_remove_main_render_callback(filter_render_callback, filter);
 
+	// If our names have changed, rebuild NDI
 	if (strcmp(filter->setting_sender_name, filter->sender_name.c_str()) !=
 	    0) {
-		info("sender named changed from %s to %s",
-		     filter->sender_name.c_str(), filter->setting_sender_name);
-
-		// rebuild
 		obs_enter_graphics();
 
 		// HACK -- tell the render engine we have no frames allocated
@@ -309,6 +319,8 @@ static void filter_update(void *data, obs_data_t *settings)
 		// Change current sender
 		filter->sender_name = std::string(filter->setting_sender_name);
 
+		// Reset all the buffers -- this causes some dropped frames I think
+		// TODO Check this out at some point
 		Texture::reset(filter, filter->width, filter->height);
 
 		obs_leave_graphics();
@@ -358,19 +370,15 @@ static void filter_destroy(void *data)
 	obs_remove_main_render_callback(filter_render_callback, filter);
 
 	// Destroy sender
-	// v1
-
 	if (filter->sender_created) {
-		info("destroying ndi sender?");
 		ndi5_lib->send_destroy(filter->ndi_sender);
 	}
 
-	// Cleanup OBS textures and surfaces
+	// Cleanup OBS stuff
 	obs_enter_graphics();
-
+	filter->prev_target = nullptr;
 	std::ranges::for_each(filter->staging_surface, gs_stagesurface_destroy);
 	std::ranges::for_each(filter->buffer_texture, gs_texture_destroy);
-	filter->prev_target = nullptr;
 	obs_leave_graphics();
 
 	// Flush NDI
@@ -379,6 +387,7 @@ static void filter_destroy(void *data)
 	// Destroy any framebuffers
 	Framebuffers::destroy(filter);
 
+	// ...
 	filter->texture_data = nullptr;
 
 	bfree(filter);
@@ -398,7 +407,6 @@ static void filter_video_render(void *data, gs_effect_t *effect)
 
 static void filter_video_tick(void *data, float seconds)
 {
-	//UNUSED_PARAMETER(data);
 	UNUSED_PARAMETER(seconds);
 	auto filter = (struct filter *)data;
 	filter->frame_count++;
@@ -408,10 +416,10 @@ static void filter_video_tick(void *data, float seconds)
 void report_version()
 {
 #ifdef DEBUG
-	info("you can haz maybe obs-ndi5-texture tooz (Version: %s)",
+	info("you can haz maybe obs-ndi5-filter tooz (Version: %s)",
 	     OBS_PLUGIN_VERSION_STRING);
 #else
-	info("obs-ndi5-texture [mrmahgu] - version %s",
+	info("obs-ndi5-filter [mrmahgu] - version %s",
 	     OBS_PLUGIN_VERSION_STRING);
 #endif
 }
@@ -474,7 +482,7 @@ bool obs_module_load(void)
 	}
 
 	if (!ndi5_lib->initialize()) {
-		error("NDI said no -- your CPU is unsupported");
+		error("NDI5 said nope -- your CPU is unsupported");
 		return false;
 	}
 
