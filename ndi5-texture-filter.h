@@ -22,8 +22,8 @@
 
 /* clang-format off */
 
-#define OBS_PLUGIN                         "ndi5-texture-filter"
-#define OBS_PLUGIN_                        "ndi5_texture_filter"
+#define OBS_PLUGIN                         "obs-ndi5-filter"
+#define OBS_PLUGIN_                        "obs_ndi5_filter"
 
 #define OBS_PLUGIN_VERSION_MAJOR           0
 #define OBS_PLUGIN_VERSION_MINOR           0
@@ -44,7 +44,7 @@ constexpr int NDI_BUFFER_COUNT = 4; // CURRENTLY NEEDS TO BE MIN 3
 constexpr int NDI_BUFFER_MAX = NDI_BUFFER_COUNT - 1;
 
 #define obs_log(level, format, ...) \
-	blog(level, "[ndi5-texture-filter] " format, ##__VA_ARGS__)
+	blog(level, "[obs-ndi5-filter] " format, ##__VA_ARGS__)
 
 #define error(format, ...) obs_log(LOG_ERROR, format, ##__VA_ARGS__)
 #define warn(format, ...) obs_log(LOG_WARNING, format, ##__VA_ARGS__)
