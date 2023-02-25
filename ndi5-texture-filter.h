@@ -35,7 +35,7 @@
 
 #define OBS_SETTING_UI_FILTER_NAME         "mahgu.ndi5texture.ui.filter_title"
 #define OBS_SETTING_UI_SENDER_NAME         "mahgu.ndi5texture.ui.sender_name"
-#define OBS_SETTING_UI_BUTTON_TITLE       "mahgu.ndi5texture.ui.button_title"
+#define OBS_SETTING_UI_BUTTON_TITLE        "mahgu.ndi5texture.ui.button_title"
 #define OBS_SETTING_DEFAULT_SENDER_NAME    "mahgu.ndi5texture.default.sender_name"
 
 /* clang-format on */
