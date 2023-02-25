@@ -376,9 +376,7 @@ static void filter_destroy(void *data)
 
 	// Cleanup OBS stuff
 	obs_enter_graphics();
-	filter->prev_target = nullptr;
-	std::ranges::for_each(filter->staging_surface, gs_stagesurface_destroy);
-	std::ranges::for_each(filter->buffer_texture, gs_texture_destroy);
+	Textures::destroy(filter);
 	obs_leave_graphics();
 
 	// Flush NDI
@@ -389,6 +387,7 @@ static void filter_destroy(void *data)
 
 	// ...
 	filter->texture_data = nullptr;
+	filter->prev_target = nullptr;
 
 	bfree(filter);
 }
@@ -472,8 +471,6 @@ bool obs_module_load(void)
 
 	NDI5Filter::report_version();
 
-	// v1
-
 	ndi5_lib = load_ndi5_lib();
 
 	if (!ndi5_lib) {
@@ -493,7 +490,6 @@ bool obs_module_load(void)
 
 void obs_module_unload()
 {
-	// v1
 	if (ndi5_lib)
 		ndi5_lib->destroy();
 
