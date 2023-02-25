@@ -86,8 +86,8 @@ inline static void flush(void *data)
 	ndi5_lib->send_send_video_async_v2(filter->ndi_sender, NULL);
 }
 
-inline static void update_ndi_video_frame(void *data, uint32_t width,
-					  uint32_t height, uint32_t depth)
+inline static void update_ndi_video_frame_desc(void *data, uint32_t width,
+					       uint32_t height, uint32_t depth)
 {
 	auto filter = (struct filter *)data;
 
@@ -137,7 +137,7 @@ inline static void create(void *data, uint32_t width, uint32_t height,
 	filter->frame_allocated = true;
 
 	// Update NDI5 ndi_video_frame desc
-	update_ndi_video_frame(filter, width, height, depth);
+	update_ndi_video_frame_desc(filter, width, height, depth);
 }
 
 } // namespace Framebuffers
@@ -376,9 +376,9 @@ static void filter_destroy(void *data)
 
 	// Cleanup OBS stuff
 	obs_enter_graphics();
-	filter->prev_target = nullptr;
-	std::ranges::for_each(filter->staging_surface, gs_stagesurface_destroy);
-	std::ranges::for_each(filter->buffer_texture, gs_texture_destroy);
+
+	Textures::destroy(filter);
+
 	obs_leave_graphics();
 
 	// Flush NDI
@@ -389,6 +389,7 @@ static void filter_destroy(void *data)
 
 	// ...
 	filter->texture_data = nullptr;
+	filter->prev_target = nullptr;
 
 	bfree(filter);
 }
@@ -472,8 +473,6 @@ bool obs_module_load(void)
 
 	NDI5Filter::report_version();
 
-	// v1
-
 	ndi5_lib = load_ndi5_lib();
 
 	if (!ndi5_lib) {
@@ -493,7 +492,6 @@ bool obs_module_load(void)
 
 void obs_module_unload()
 {
-	// v1
 	if (ndi5_lib)
 		ndi5_lib->destroy();
 
