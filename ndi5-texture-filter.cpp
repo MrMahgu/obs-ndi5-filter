@@ -86,8 +86,8 @@ inline static void flush(void *data)
 	ndi5_lib->send_send_video_async_v2(filter->ndi_sender, NULL);
 }
 
-inline static void update_ndi_video_frame(void *data, uint32_t width, uint32_t height,
-			  uint32_t depth)
+inline static void update_ndi_video_frame(void *data, uint32_t width,
+					  uint32_t height, uint32_t depth)
 {
 	auto filter = (struct filter *)data;
 
@@ -378,7 +378,7 @@ static void filter_destroy(void *data)
 	obs_enter_graphics();
 	filter->prev_target = nullptr;
 	std::ranges::for_each(filter->staging_surface, gs_stagesurface_destroy);
-	std::ranges::for_each(filter->buffer_texture, gs_texture_destroy);	
+	std::ranges::for_each(filter->buffer_texture, gs_texture_destroy);
 	obs_leave_graphics();
 
 	// Flush NDI
@@ -406,7 +406,7 @@ static void filter_video_render(void *data, gs_effect_t *effect)
 }
 
 static void filter_video_tick(void *data, float seconds)
-{	
+{
 	UNUSED_PARAMETER(seconds);
 	auto filter = (struct filter *)data;
 	filter->frame_count++;
