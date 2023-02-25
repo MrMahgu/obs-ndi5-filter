@@ -87,7 +87,7 @@ inline static void flush(void *data)
 }
 
 inline static void update_ndi_video_frame_desc(void *data, uint32_t width,
-					  uint32_t height, uint32_t depth)
+					       uint32_t height, uint32_t depth)
 {
 	auto filter = (struct filter *)data;
 
