@@ -1,5 +1,8 @@
 # obs-ndi5-filter
 
-OBS filter plugin example allowing you to share a texture using an NDI5 filter
+OBS filter plugin allowing any source texture to be shared via NDI5.
 
-NOTE: Currently does nothing and is not implemented.
+`NOTE: This filter only send video data.`
+
+
+
