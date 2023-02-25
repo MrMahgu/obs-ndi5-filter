@@ -223,7 +223,6 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	filter->prev_space = gs_get_color_space();
 
 	// RENDER THE CURRENT FRAME
-	// 0
 	gs_set_render_target_with_color_space(
 		filter->buffer_texture[filter->buffer_index], NULL, GS_CS_SRGB);
 
