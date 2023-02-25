@@ -7,6 +7,8 @@
 
 #include <memory>
 #include <atomic>
+#include <string>
+#include <ranges>
 
 #include <obs-module.h>
 #include <graphics/graphics.h>
@@ -22,15 +24,19 @@
 
 #define OBS_PLUGIN                         "ndi5-texture-filter"
 #define OBS_PLUGIN_                        "ndi5_texture_filter"
+
 #define OBS_PLUGIN_VERSION_MAJOR           0
 #define OBS_PLUGIN_VERSION_MINOR           0
 #define OBS_PLUGIN_VERSION_RELEASE         1
 #define OBS_PLUGIN_VERSION_STRING          "0.0.1"
+
 #define OBS_PLUGIN_LANG                    "en-US"
 #define OBS_PLUGIN_COLOR_SPACE             GS_RGBA_UNORM
 
-#define OBS_UI_SETTING_FILTER_NAME         "mahgu.ndi5texture.ui.filter_title"
-#define OBS_UI_SETTING_DESC_NAME           "mahgu.ndi5texture.ui.name_desc"
+#define OBS_SETTING_UI_FILTER_NAME         "mahgu.ndi5texture.ui.filter_title"
+#define OBS_SETTING_UI_SENDER_NAME         "mahgu.ndi5texture.ui.sender_name"
+#define OBS_SETTING_UI_BUTTON_TITLE       "mahgu.ndi5texture.ui.button_title"
+#define OBS_SETTING_DEFAULT_SENDER_NAME    "mahgu.ndi5texture.default.sender_name"
 
 /* clang-format on */
 
@@ -53,8 +59,11 @@ void report_version();
 // OBS plugin stuff
 
 static const char *filter_get_name(void *unused);
-static obs_properties_t *filter_properties(void *data);
-static void filter_defaults(obs_data_t *settings);
+static obs_properties_t *filter_properties(void *unused);
+static bool filter_update_sender_name(obs_properties_t *, obs_property_t *,
+				      void *data);
+
+static void filter_defaults(obs_data_t *defaults);
 
 static void *filter_create(obs_data_t *settings, obs_source_t *source);
 static void filter_destroy(void *data);
@@ -104,6 +113,10 @@ struct filter {
 	uint32_t frame_count;
 
 	bool first_run_update;
+
+	const char *setting_sender_name; // realtime setting
+
+	std::string sender_name; // ndi sender name
 };
 
 struct obs_source_info create_filter_info()

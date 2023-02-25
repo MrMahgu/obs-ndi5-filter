@@ -2,17 +2,8 @@
 
 #include "inc/Processing.NDI.Lib.h"
 
-#include <thread>
-
-// TODO deside how to name all the plugins (obs-xxx-filter vs what we use inside, ndi5-texture-filter..etc)
-// TODO compare reading styles of std::ranges vs oldschool
-#include <ranges>
-#include <future>
-
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(OBS_PLUGIN, OBS_PLUGIN_LANG)
-
-//HMODULE dll;
 
 const NDIlib_v5 *ndi5_lib = nullptr;
 
@@ -21,25 +12,44 @@ namespace NDI5Filter {
 static const char *filter_get_name(void *unused)
 {
 	UNUSED_PARAMETER(unused);
-	return obs_module_text(OBS_UI_SETTING_FILTER_NAME);
+	return obs_module_text(OBS_SETTING_UI_FILTER_NAME);
 }
 
-static obs_properties_t *filter_properties(void *data)
+static bool filter_update_sender_name(obs_properties_t *, obs_property_t *,
+				      void *data)
 {
-	UNUSED_PARAMETER(data);
+	auto filter = (struct filter *)data;
+
+	obs_data_t *settings = obs_source_get_settings(filter->context);
+	filter_update(filter, settings);
+	obs_data_release(settings);
+	return true;
+}
+
+static obs_properties_t *filter_properties(void *unused)
+{
+	UNUSED_PARAMETER(unused);
 
 	auto props = obs_properties_create();
 
-	obs_properties_add_text(props, OBS_UI_SETTING_DESC_NAME,
-				obs_module_text(OBS_UI_SETTING_DESC_NAME),
+	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
+
+	obs_properties_add_text(props, OBS_SETTING_UI_SENDER_NAME,
+				obs_module_text(OBS_SETTING_UI_SENDER_NAME),
 				OBS_TEXT_DEFAULT);
+
+	obs_properties_add_button(props, OBS_SETTING_UI_BUTTON_TITLE,
+				  obs_module_text(OBS_SETTING_UI_BUTTON_TITLE),
+				  filter_update_sender_name);
 
 	return props;
 }
 
-static void filter_defaults(obs_data_t *settings)
+static void filter_defaults(obs_data_t *defaults)
 {
-	UNUSED_PARAMETER(settings);
+	obs_data_set_default_string(
+		defaults, OBS_SETTING_UI_SENDER_NAME,
+		obs_module_text(OBS_SETTING_DEFAULT_SENDER_NAME));
 }
 
 namespace Textures {
@@ -159,7 +169,7 @@ static void reset(void *data, uint32_t width, uint32_t height)
 		ndi5_lib->send_destroy(filter->ndi_sender);
 
 	NDIlib_send_create_t desc;
-	desc.p_ndi_name = "Test NDI";
+	desc.p_ndi_name = filter->sender_name.c_str();
 	desc.clock_video = false;
 
 	filter->ndi_sender = ndi5_lib->send_create(&desc);
@@ -285,7 +295,25 @@ static void filter_update(void *data, obs_data_t *settings)
 
 	obs_remove_main_render_callback(filter_render_callback, filter);
 
-	// do some thing??
+	if (strcmp(filter->setting_sender_name, filter->sender_name.c_str()) !=
+	    0) {
+		info("sender named changed from %s to %s",
+		     filter->sender_name.c_str(), filter->setting_sender_name);
+
+		// rebuild
+		obs_enter_graphics();
+
+		// HACK -- tell the render engine we have no frames allocated
+		filter->frame_allocated = false;
+
+		// Change current sender
+		filter->sender_name = std::string(filter->setting_sender_name);
+
+		Texture::reset(filter, filter->width, filter->height);
+
+		obs_leave_graphics();
+
+	}
 
 	obs_add_main_render_callback(filter_render_callback, filter);
 }
@@ -307,6 +335,13 @@ static void *filter_create(obs_data_t *settings, obs_source_t *source)
 
 	// Setup the obs context
 	filter->context = source;
+
+	// setup the ui setting
+	filter->setting_sender_name =
+		obs_data_get_string(settings, OBS_SETTING_UI_SENDER_NAME);
+
+	// Copy it to our sendername
+	filter->sender_name = std::string(filter->setting_sender_name);
 
 	// force an update
 	filter_update(filter, settings);
