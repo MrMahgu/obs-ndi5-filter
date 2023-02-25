@@ -369,11 +369,6 @@ static void filter_destroy(void *data)
 
 	obs_remove_main_render_callback(filter_render_callback, filter);
 
-	// Destroy sender
-	if (filter->sender_created) {
-		ndi5_lib->send_destroy(filter->ndi_sender);
-	}
-
 	// Cleanup OBS stuff
 	obs_enter_graphics();
 
@@ -383,6 +378,10 @@ static void filter_destroy(void *data)
 
 	// Flush NDI
 	Framebuffers::flush(filter);
+
+	// Destroy sender
+	if (filter->sender_created)
+		ndi5_lib->send_destroy(filter->ndi_sender);
 
 	// Destroy any framebuffers
 	Framebuffers::destroy(filter);
