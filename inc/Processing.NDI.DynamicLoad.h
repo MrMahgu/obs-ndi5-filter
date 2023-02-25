@@ -51,19 +51,19 @@ typedef struct NDIlib_v5 {
 
 	union {
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_find_instance_t (*find_create)(
-				const NDIlib_find_create_t *p_create_settings);
+		NDIlib_find_instance_t (*find_create)(
+			const NDIlib_find_create_t *p_create_settings);
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_find_instance_t (*NDIlib_find_create)(
-				const NDIlib_find_create_t *p_create_settings);
+		NDIlib_find_instance_t (*NDIlib_find_create)(
+			const NDIlib_find_create_t *p_create_settings);
 	};
 
 	union {
 		NDIlib_find_instance_t (*find_create_v2)(
 			const NDIlib_find_create_t *p_create_settings);
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_find_instance_t (*NDIlib_find_create_v2)(
-				const NDIlib_find_create_t *p_create_settings);
+		NDIlib_find_instance_t (*NDIlib_find_create_v2)(
+			const NDIlib_find_create_t *p_create_settings);
 	};
 
 	union {
@@ -86,8 +86,8 @@ typedef struct NDIlib_v5 {
 		NDIlib_send_instance_t (*send_create)(
 			const NDIlib_send_create_t *p_create_settings);
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_send_instance_t (*NDIlib_send_create)(
-				const NDIlib_send_create_t *p_create_settings);
+		NDIlib_send_instance_t (*NDIlib_send_create)(
+			const NDIlib_send_create_t *p_create_settings);
 	};
 
 	union {
@@ -138,10 +138,10 @@ typedef struct NDIlib_v5 {
 			NDIlib_metadata_frame_t *p_metadata,
 			uint32_t timeout_in_ms);
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_frame_type_e (*NDIlib_send_capture)(
-				NDIlib_send_instance_t p_instance,
-				NDIlib_metadata_frame_t *p_metadata,
-				uint32_t timeout_in_ms);
+		NDIlib_frame_type_e (*NDIlib_send_capture)(
+			NDIlib_send_instance_t p_instance,
+			NDIlib_metadata_frame_t *p_metadata,
+			uint32_t timeout_in_ms);
 	};
 
 	union {
@@ -200,20 +200,20 @@ typedef struct NDIlib_v5 {
 
 	union {
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_recv_instance_t (*recv_create_v2)(
-				const NDIlib_recv_create_t *p_create_settings);
+		NDIlib_recv_instance_t (*recv_create_v2)(
+			const NDIlib_recv_create_t *p_create_settings);
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_recv_instance_t (*NDIlib_recv_create_v2)(
-				const NDIlib_recv_create_t *p_create_settings);
+		NDIlib_recv_instance_t (*NDIlib_recv_create_v2)(
+			const NDIlib_recv_create_t *p_create_settings);
 	};
 
 	union {
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_recv_instance_t (*recv_create)(
-				const NDIlib_recv_create_t *p_create_settings);
+		NDIlib_recv_instance_t (*recv_create)(
+			const NDIlib_recv_create_t *p_create_settings);
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_recv_instance_t (*NDIlib_recv_create)(
-				const NDIlib_recv_create_t *p_create_settings);
+		NDIlib_recv_instance_t (*NDIlib_recv_create)(
+			const NDIlib_recv_create_t *p_create_settings);
 	};
 
 	union {
@@ -230,12 +230,12 @@ typedef struct NDIlib_v5 {
 			NDIlib_metadata_frame_t *p_metadata,
 			uint32_t timeout_in_ms);
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_frame_type_e (*NDIlib_recv_capture)(
-				NDIlib_recv_instance_t p_instance,
-				NDIlib_video_frame_t *p_video_data,
-				NDIlib_audio_frame_t *p_audio_data,
-				NDIlib_metadata_frame_t *p_metadata,
-				uint32_t timeout_in_ms);
+		NDIlib_frame_type_e (*NDIlib_recv_capture)(
+			NDIlib_recv_instance_t p_instance,
+			NDIlib_video_frame_t *p_video_data,
+			NDIlib_audio_frame_t *p_audio_data,
+			NDIlib_metadata_frame_t *p_metadata,
+			uint32_t timeout_in_ms);
 	};
 
 	union {
@@ -803,8 +803,8 @@ typedef struct NDIlib_v5 {
 		NDIlib_framesync_instance_t (*framesync_create)(
 			NDIlib_recv_instance_t p_receiver);
 		PROCESSINGNDILIB_DEPRECATED
-			NDIlib_framesync_instance_t (*NDIlib_framesync_create)(
-				NDIlib_recv_instance_t p_receiver);
+		NDIlib_framesync_instance_t (*NDIlib_framesync_create)(
+			NDIlib_recv_instance_t p_receiver);
 	};
 
 	union {
