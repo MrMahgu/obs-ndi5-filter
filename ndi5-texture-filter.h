@@ -31,7 +31,7 @@
 #define OBS_PLUGIN_VERSION_STRING          "0.0.1"
 
 #define OBS_PLUGIN_LANG                    "en-US"
-#define OBS_PLUGIN_COLOR_SPACE             GS_RGBA_UNORM
+#define OBS_PLUGIN_COLOR_SPACE             GS_RGBA
 
 #define OBS_SETTING_UI_FILTER_NAME         "mahgu.ndi5texture.ui.filter_title"
 #define OBS_SETTING_UI_SENDER_NAME         "mahgu.ndi5texture.ui.sender_name"
@@ -39,6 +39,9 @@
 #define OBS_SETTING_DEFAULT_SENDER_NAME    "mahgu.ndi5texture.default.sender_name"
 
 /* clang-format on */
+
+constexpr int NDI_BUFFER_COUNT = 4;
+constexpr int NDI_BUFFER_MAX = NDI_BUFFER_COUNT - 1;
 
 #define obs_log(level, format, ...) \
 	blog(level, "[ndi5-texture-filter] " format, ##__VA_ARGS__)
@@ -48,38 +51,18 @@
 #define info(format, ...) obs_log(LOG_INFO, format, ##__VA_ARGS__)
 #define debug(format, ...) obs_log(LOG_DEBUG, format, ##__VA_ARGS__)
 
-bool obs_module_load(void);
-void obs_module_unload();
-
 namespace NDI5Filter {
-// DEBUG stuff
-
-void report_version();
-
-// OBS plugin stuff
 
 static const char *filter_get_name(void *unused);
 static obs_properties_t *filter_properties(void *unused);
-static bool filter_update_sender_name(obs_properties_t *, obs_property_t *,
-				      void *data);
 
 static void filter_defaults(obs_data_t *defaults);
-
 static void *filter_create(obs_data_t *settings, obs_source_t *source);
 static void filter_destroy(void *data);
 static void filter_render_callback(void *data, uint32_t cx, uint32_t cy);
 static void filter_update(void *data, obs_data_t *settings);
 static void filter_video_render(void *data, gs_effect_t *effect);
 static void filter_video_tick(void *data, float seconds);
-
-// Shared texture stuff
-
-namespace Texture {
-
-static void reset(void *data, uint32_t width, uint32_t height);
-static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy);
-
-} // namespace Texture
 
 struct filter {
 	obs_source_t *context;
@@ -94,9 +77,10 @@ struct filter {
 
 	gs_texture_t *prev_target;
 
-	gs_texture_t *buffer_texture[8];
-	gs_stagesurf_t *staging_surface[8];
-	uint8_t *ndi_frame_buffers[8];
+	// min 3
+	gs_texture_t *buffer_texture[NDI_BUFFER_COUNT];
+	gs_stagesurf_t *staging_surface[NDI_BUFFER_COUNT];
+	uint8_t *ndi_frame_buffers[NDI_BUFFER_COUNT];
 
 	NDIlib_video_frame_v2_t ndi_video_frame;
 
