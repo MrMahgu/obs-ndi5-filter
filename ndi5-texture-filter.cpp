@@ -5,6 +5,14 @@
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(OBS_PLUGIN, OBS_PLUGIN_LANG)
 
+// Use the current frame to stage the next frames texture
+// If defined this will force the renderer to stage the next calls ndi data with the texture
+// just rendered in the current frame -- double buffering regardless of how many buffers we
+// set
+// If this is undefined, we fill up the buffers and then frames start outputting
+#define USE_CURRENT_FRAME
+#undef USE_CURRENT_FRAME
+
 const NDIlib_v5 *ndi5_lib = nullptr;
 
 namespace NDI5Filter {
@@ -215,6 +223,7 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 	filter->prev_space = gs_get_color_space();
 
 	// RENDER THE CURRENT FRAME
+	// 0
 	gs_set_render_target_with_color_space(
 		filter->buffer_texture[filter->buffer_index], NULL, GS_CS_SRGB);
 
@@ -252,18 +261,31 @@ static void render(void *data, obs_source_t *target, uint32_t cx, uint32_t cy)
 			filter->staging_surface[prev_buffer_index]);
 	}
 
+#ifdef USE_CURRENT_FRAME
+	// Sets the NDI5 frame data to the same memory we just copied above
+	filter->ndi_video_frame.p_data =
+		filter->ndi_frame_buffers[filter->buffer_index];
+#else
 	// SET THE NEXT FRAME
 	// If this was the very first frame, it wont'get actually get rendered
 	// until frame buffer_count+1
 	filter->ndi_video_frame.p_data =
 		filter->ndi_frame_buffers[next_buffer_index];
 
+#endif
 	ndi5_lib->send_send_video_async_v2(filter->ndi_sender,
 					   &filter->ndi_video_frame);
 
+#ifdef USE_CURRENT_FRAME
+	// STAGE THE NEXT FRAME
+	// Use the current texture render inside this call
+	gs_stage_texture(filter->staging_surface[filter->buffer_index],
+			 filter->buffer_texture[filter->buffer_index]);
+#else
 	// STAGE THE NEXT FRAME
 	gs_stage_texture(filter->staging_surface[filter->buffer_index],
 			 filter->buffer_texture[prev_buffer_index]);
+#endif
 
 	filter->buffer_index = next_buffer_index;
 
