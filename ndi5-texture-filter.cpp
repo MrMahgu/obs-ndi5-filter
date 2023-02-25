@@ -376,7 +376,9 @@ static void filter_destroy(void *data)
 
 	// Cleanup OBS stuff
 	obs_enter_graphics();
+
 	Textures::destroy(filter);
+
 	obs_leave_graphics();
 
 	// Flush NDI
