@@ -40,7 +40,7 @@
 
 /* clang-format on */
 
-constexpr int NDI_BUFFER_COUNT = 4;
+constexpr int NDI_BUFFER_COUNT = 4; // CURRENTLY NEEDS TO BE MIN 3
 constexpr int NDI_BUFFER_MAX = NDI_BUFFER_COUNT - 1;
 
 #define obs_log(level, format, ...) \
@@ -67,36 +67,31 @@ static void filter_video_tick(void *data, float seconds);
 struct filter {
 	obs_source_t *context;
 
+	gs_texture_t *prev_target;
+	gs_texture_t *buffer_texture[NDI_BUFFER_COUNT];
+	gs_stagesurf_t *staging_surface[NDI_BUFFER_COUNT];
+	uint8_t *ndi_frame_buffers[NDI_BUFFER_COUNT];
+
+	uint8_t *texture_data;
+
+	NDIlib_video_frame_v2_t ndi_video_frame;
+	NDIlib_send_instance_t ndi_sender;
+
+	bool sender_created;
+	bool frame_allocated;
+	bool first_run_update;
+
+	enum gs_color_space prev_space;
+	enum gs_color_format texture_format;
+
 	uint32_t width;
 	uint32_t height;
 	uint32_t depth;
 	uint32_t size;
 
-	enum gs_color_space prev_space;
-	enum gs_color_format texture_format;
-
-	gs_texture_t *prev_target;
-
-	// min 3
-	gs_texture_t *buffer_texture[NDI_BUFFER_COUNT];
-	gs_stagesurf_t *staging_surface[NDI_BUFFER_COUNT];
-	uint8_t *ndi_frame_buffers[NDI_BUFFER_COUNT];
-
-	NDIlib_video_frame_v2_t ndi_video_frame;
-
-	NDIlib_send_instance_t ndi_sender;
-
-	bool sender_created;
-
-	bool frame_allocated;
-
 	uint32_t linesize;
-	uint8_t *texture_data;
-
 	uint32_t buffer_index;
 	uint32_t frame_count;
-
-	bool first_run_update;
 
 	const char *setting_sender_name; // realtime setting
 
