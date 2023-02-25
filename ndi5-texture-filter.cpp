@@ -312,7 +312,6 @@ static void filter_update(void *data, obs_data_t *settings)
 		Texture::reset(filter, filter->width, filter->height);
 
 		obs_leave_graphics();
-
 	}
 
 	obs_add_main_render_callback(filter_render_callback, filter);
