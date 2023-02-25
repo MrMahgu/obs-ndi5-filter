@@ -86,7 +86,7 @@ inline static void flush(void *data)
 	ndi5_lib->send_send_video_async_v2(filter->ndi_sender, NULL);
 }
 
-inline static void update_ndi_video_frame(void *data, uint32_t width,
+inline static void update_ndi_video_frame_desc(void *data, uint32_t width,
 					  uint32_t height, uint32_t depth)
 {
 	auto filter = (struct filter *)data;
@@ -137,7 +137,7 @@ inline static void create(void *data, uint32_t width, uint32_t height,
 	filter->frame_allocated = true;
 
 	// Update NDI5 ndi_video_frame desc
-	update_ndi_video_frame(filter, width, height, depth);
+	update_ndi_video_frame_desc(filter, width, height, depth);
 }
 
 } // namespace Framebuffers

@@ -41,7 +41,6 @@
 /* clang-format on */
 
 constexpr int NDI_BUFFER_COUNT = 4; // CURRENTLY NEEDS TO BE MIN 3
-
 constexpr int NDI_BUFFER_MAX = NDI_BUFFER_COUNT - 1;
 
 #define obs_log(level, format, ...) \
