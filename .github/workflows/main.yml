@@ -370,7 +370,7 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
         with:
-          draft: false
+          draft: true
           prerelease: ${{ contains(steps.metadata.outputs.version, 'rc') || contains(steps.metadata.outputs.version, 'beta') }}
           tag_name: ${{ steps.metadata.outputs.version }}
           name: "${{ env.PLUGIN_NAME }} ${{ steps.metadata.outputs.version }}"
